@@ -42,5 +42,7 @@ int main() {
 
     pthread_join(thread_id, NULL);
 
+    fini_struct(&st);
+
     return 0;
 }
