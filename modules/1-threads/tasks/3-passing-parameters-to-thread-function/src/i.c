@@ -23,7 +23,7 @@ void *another_thread(void *arg) {
 
     struct some_struct *st = (struct some_struct *) arg;
     st->some_int = 5;
-    *st->some_char_ptr = '$';
+    //*st->some_char_ptr = '$';
 
     sleep(3);
     return NULL;

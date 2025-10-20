@@ -10,4 +10,4 @@ i: $(SRC)i.c
 	gcc $(SRC)i.c -o i -lpthread
 
 ii: $(SRC)ii.c
-	gcc $(SRC)ii.c -o ii -lpthread
+	gcc $(SRC)ii.c -o ii -lpthread -fsanitize=address

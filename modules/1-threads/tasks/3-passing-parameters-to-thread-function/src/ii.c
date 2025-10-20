@@ -40,6 +40,7 @@ void *thread_function(void *arg) {
     pthread_cleanup_push(cleanup_handler, st);
 
 	printf("\t[THREAD]: some_int=%d\n", st->some_int);
+	pthread_exit(NULL);
 	printf("\t[THREAD]: some_char=%c\n", *st->some_char_ptr);
 
     pthread_cleanup_pop(1);
