@@ -6,3 +6,6 @@ b: b-pthread-testcancel.c
 
 c: c-cleanup-push-pop.c
 	gcc c-cleanup-push-pop.c -o c-cpp -lpthread
+
+d: d-signal-handler.c
+	gcc d-signal-handler.c -o d-sh -lpthread
