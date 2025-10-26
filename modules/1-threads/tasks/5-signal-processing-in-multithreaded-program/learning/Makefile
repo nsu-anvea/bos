@@ -23,7 +23,7 @@ all: 1 2 3 4
 	$(call compile,3-s)
 
 4: $(SRC_DIR)/4-which-thread-processes-signal.c
-	$(call compile,4-wtps)
+	$(call compile,4-wtps) $(LDFLAGS)
 
 
 run_1: $(BLD_DIR)/1-ios
