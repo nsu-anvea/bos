@@ -7,7 +7,10 @@
 #include <unistd.h>
 
 int thread_function(void *arg) {
-	printf("\t[THREAD]: Hello! arg=%s\n", (char *)arg);
+	printf("\t[THREAD]: I've started!\n");
+	printf("\t[THREAD][PRINT]: %s\n", (char *)arg);
+	sleep(1);
+	printf("\t[THREAD]: I've finished!\n");
 	return 0;
 }
 
@@ -27,13 +30,16 @@ int main() {
 		perror("mmap failed");
 	}
 
-	printf("[INFO]: created stack with addr=%p", stack);
+	printf("[INFO]: created stack with addr=%p\n", stack);
+	// Если убрать \n этот и следующий print могут продублироваться,
+	// предположительно из-за того, что clone может копировать буфер,
+	// и перед clone мы не сбросили буфер с помощью \n.
 
 	
 	int pid = clone(
 		thread_function,
 		stack + size,
-		CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND,
+		CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | SIGCHLD,
 		(void *)"Hello, World!"
 	);
 	
@@ -58,3 +64,4 @@ int main() {
 
 	return 0;
 }
+
