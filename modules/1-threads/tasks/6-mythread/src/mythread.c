@@ -23,7 +23,7 @@
 
 typedef struct {
 	size_t 	size;
-	void *	head;
+	void *	arr_ptr;
 } mystack_t;
 
 typedef struct mythread_t {
@@ -57,7 +57,7 @@ void delete_thread_wrapper(thread_wrapper_t *tw) {
 	free(tw);
 }
 
-mystack_t *create_stack(size_t size) {
+mystack_t *mystack_create(size_t size) {
 	void *stack = mmap(
 		NULL,
 		size,
@@ -79,18 +79,26 @@ mystack_t *create_stack(size_t size) {
         return NULL;
     }
 	s->size = size;
-	s->head = stack;
+	s->arr_ptr = stack;
 
 	return s;
 }
 
-int delete_stack(mystack_t *stack) {
-	if (munmap(stack->head, stack->size) == -1) {
+int mystack_delete(mystack_t *stack) {
+	if (munmap(stack->arr_ptr, stack->size) == -1) {
 		perror("munmap failed");
 		return -1;
 	}
     free(stack);
 	return 0;
+}
+
+size_t mystack_get_size(mystack_t *mystack) {
+	return mystack->size;
+}
+
+void *mystack_get_arr_ptr(mystack_t *mystack) {
+	return mystack->arr_ptr;
 }
 
 int thread_wrapper_fn(void *arg) {
@@ -114,9 +122,9 @@ int thread_wrapper_fn(void *arg) {
 
 int mythread_create(mythread_t *thread, void *(*start_routine)(void *), void *arg) {
 
-	thread->stack = create_stack(STACK_SIZE);
+	thread->stack = mystack_create(STACK_SIZE);
 	if (!thread->stack) {
-		perror("create_stack failed");
+		perror("mystack_create failed");
 		return EXIT_FAILURE;
 	}
     DEBUG_PRINT("stack have been created\n");
@@ -124,14 +132,14 @@ int mythread_create(mythread_t *thread, void *(*start_routine)(void *), void *ar
 	thread_wrapper_t *tw = create_thread_wrapper(thread, start_routine, arg);
     if (!tw) {
         perror("create_thread_wrapper failed");
-        delete_stack(thread->stack);
+        mystack_delete(thread->stack);
         return EXIT_FAILURE;
     }
     DEBUG_PRINT("thread_wrapper have been created\n");
 
 	thread->pid = clone(
 		thread_wrapper_fn,
-		thread->stack->head + thread->stack->size,
+		thread->stack->arr_ptr + thread->stack->size,
 		CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | SIGCHLD,
 		(void *)tw
 	);
@@ -154,8 +162,8 @@ int mythread_join(mythread_t *thread, void **retv) {
 	*retv = thread->retv;
     DEBUG_PRINT("have stored value=%p\n", thread->retv);
 
-	if (delete_stack(thread->stack) != EXIT_SUCCESS) {
-		perror("delete_stack failed");
+	if (mystack_delete(thread->stack) != EXIT_SUCCESS) {
+		perror("mystack_delete failed");
 	}
     INFO_PRINT("have got the message from the mythread\n");
 
