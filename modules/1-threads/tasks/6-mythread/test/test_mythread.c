@@ -55,7 +55,7 @@ int test_simple_create_join(void) {
 #define NUM_THREADS 10
 
 void *counter_thread_fn(void *arg) {
-    int thread_id = *(int *)arg;
+    int thread_id = (int)(long)arg;  // Передаём ID по значению, не по указателю
     
     for (int i = 0; i < 100; i++) {
         pthread_mutex_lock(&counter_mutex);
@@ -75,14 +75,12 @@ int test_multiple_threads(void) {
     TEST_INFO("Test 2: Multiple threads (%d threads)", NUM_THREADS);
     
     mythread_t threads[NUM_THREADS];
-    int thread_ids[NUM_THREADS];
     
     global_counter = 0;
     
-    /* Создаём потоки */
+    /* Создаём потоки - передаём ID напрямую как значение */
     for (int i = 0; i < NUM_THREADS; i++) {
-        thread_ids[i] = i;
-        int ret = mythread_create(&threads[i], counter_thread_fn, &thread_ids[i]);
+        int ret = mythread_create(&threads[i], counter_thread_fn, (void *)(long)i);
         if (ret != 0) {
             perror("  mythread_create");
             TEST_FAIL("Multiple threads - create");
