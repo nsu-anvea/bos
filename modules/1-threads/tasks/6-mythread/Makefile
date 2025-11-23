@@ -1,68 +1,62 @@
 # Компилятор и флаги
 CC = gcc
-CFLAGS = -Wall -Wextra -O2 -fPIC
-LDFLAGS = -shared
+CFLAGS = -Wall -Wextra -O2 -Iinclude
+LDFLAGS = -shared -fPIC
 LIBS = -lpthread
 
-# Имена файлов
-LIB_NAME = libmythread.so
-LIB_SRC = mythread.c
-LIB_OBJ = mythread.o
-HEADER = mythread.h
+# Директории
+SRC_DIR = src
+TEST_DIR = test
+INCLUDE_DIR = include
+BUILD_DIR = build
+LEARNING_DIR = learning/src
 
-TEST_SRC = test_mythread.c
-TEST_BIN = test_mythread
+# Файлы
+LIB_NAME = $(BUILD_DIR)/libmythread.so
+LIB_SRC = $(SRC_DIR)/mythread.c
+LIB_OBJ = $(BUILD_DIR)/mythread.o
+
+TEST_SRC = $(TEST_DIR)/test_mythread.c
+TEST_BIN = $(BUILD_DIR)/test_mythread
+
+LEARNING_SRCS = $(wildcard $(LEARNING_DIR)/*.c)
+LEARNING_BINS = $(patsubst $(LEARNING_DIR)/%.c,$(BUILD_DIR)/%,$(LEARNING_SRCS))
 
 # Цели
-.PHONY: all clean test install
+.PHONY: all clean test learning
 
 all: $(LIB_NAME) $(TEST_BIN)
 
-# Сборка динамической библиотеки
-$(LIB_NAME): $(LIB_OBJ)
-	@echo "Linking shared library: $@"
+# Создание директории build
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
+
+# Сборка библиотеки
+$(LIB_NAME): $(LIB_OBJ) | $(BUILD_DIR)
 	$(CC) $(LDFLAGS) -o $@ $^
 
-$(LIB_OBJ): $(LIB_SRC) $(HEADER)
-	@echo "Compiling: $<"
-	$(CC) $(CFLAGS) -c $< -o $@
+$(LIB_OBJ): $(LIB_SRC) $(INCLUDE_DIR)/mythread.h | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -fPIC -c $< -o $@
 
 # Сборка тестов
-$(TEST_BIN): $(TEST_SRC) $(LIB_NAME)
-	@echo "Compiling test program: $@"
-	$(CC) $(CFLAGS) $< -o $@ -L. -lmythread $(LIBS) -Wl,-rpath,.
+$(TEST_BIN): $(TEST_SRC) $(LIB_NAME) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) $< -o $@ -L$(BUILD_DIR) -lmythread $(LIBS) -Wl,-rpath,$(BUILD_DIR)
 
 # Запуск тестов
 test: $(TEST_BIN)
 	@echo "Running tests..."
 	@./$(TEST_BIN)
 
-# Установка библиотеки в систему (требует sudo)
-install: $(LIB_NAME) $(HEADER)
-	@echo "Installing library to /usr/local/lib"
-	install -m 755 $(LIB_NAME) /usr/local/lib/
-	@echo "Installing header to /usr/local/include"
-	install -m 644 $(HEADER) /usr/local/include/
-	@echo "Running ldconfig..."
-	ldconfig
-	@echo "Installation complete!"
+# Сборка learning примеров
+learning: $(LEARNING_BINS)
 
-# Удаление собранных файлов
+$(BUILD_DIR)/%: $(LEARNING_DIR)/%.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) $< -o $@
+
+# Очистка
 clean:
-	@echo "Cleaning..."
-	rm -f $(LIB_NAME) $(LIB_OBJ) $(TEST_BIN)
-	@echo "Clean complete!"
+	rm -rf $(BUILD_DIR)
 
 # Отладочная сборка
 debug: CFLAGS += -g -DDEBUG
 debug: clean all
-
-# Справка
-help:
-	@echo "Available targets:"
-	@echo "  all      - Build library and tests (default)"
-	@echo "  test     - Build and run tests"
-	@echo "  clean    - Remove all built files"
-	@echo "  install  - Install library system-wide (needs sudo)"
-	@echo "  debug    - Build with debug symbols and DEBUG output"
-	@echo "  help     - Show this help"
