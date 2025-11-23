@@ -43,7 +43,7 @@ void *thread_func2(void *arg) {
 			pthread_sigmask(SIG_UNBLOCK, &set, NULL);
 			printf("\t[THREAD=2]: разблокировал сигнал SIGINT\n");
 		}
-		sleep(1);
+		sleep(3);
 		i++;
 	}
 	return NULL;
