@@ -37,52 +37,25 @@ typedef struct {
 
 	void *	user_arg;
 	void **	fn_retv;
-} mythread_wrapper_t;
+} thread_wrapper_t;
 
 
 
-mythread_wrapper_t *create_mythread_wrapper(mythread_t *mythread, void *(*user_fn)(void *), void *user_arg) {
-	mythread_wrapper_t *mythread_wrapper = (mythread_wrapper_t *)malloc(sizeof(mythread_wrapper_t));
-	if (!mythread_wrapper) return mythread_wrapper;
+thread_wrapper_t *create_thread_wrapper(mythread_t *thread, void *(*user_fn)(void *), void *user_arg) {
 
-	mythread_wrapper->user_fn = user_fn;
-	mythread_wrapper->user_arg = user_arg;
-	mythread_wrapper->fn_retv = &mythread->retv;
+	thread_wrapper_t *tw = (thread_wrapper_t *)malloc(sizeof(thread_wrapper_t));
+	if (!tw) return tw;
 
-	return mythread_wrapper;
+	tw->user_fn = user_fn;
+	tw->user_arg = user_arg;
+	tw->fn_retv = &thread->retv;
+
+	return tw;
 }
 
-void delete_mythread_wrapper(mythread_wrapper_t *mythread_wrapper) {
-	free(mythread_wrapper);
+void delete_thread_wrapper(thread_wrapper_t *tw) {
+	free(tw);
 }
-
-void *(*mythread_wrapper_get_user_fn(mythread_wrapper_t *mythread_wrapper))(void *) {
-	return mythread_wrapper->user_fn;
-}
-
-void *mythread_wrapper_get_user_arg(mythread_wrapper_t *mythread_wrapper) {
-	return mythread_wrapper->user_arg;
-}
-
-void **mythread_wrapper_get_fn_retv(mythread_wrapper_t *mythread_wrapper) {
-	return mythread_wrapper->fn_retv;
-}
-
-void mythread_wrapper_set_user_fn(mythread_wrapper_t *mythread_wrapper, void *(*user_fn)(void *)) {
-	mythread_wrapper->user_fn = user_fn;
-}
-
-void mythread_wrapper_set_user_arg(mythread_wrapper_t *mythread_wrapper, void *user_arg) {
-	mythread_wrapper->user_arg = user_arg;
-}
-
-void mythread_wrapper_set_fn_retv(mythread_wrapper_t *mythread_wrapper, void **fn_retv) {
-	mythread_wrapper->fn_retv = fn_retv;
-}
-
-
-
-
 
 mystack_t *mystack_create(size_t size) {
 	void *stack = mmap(
@@ -128,56 +101,49 @@ void *mystack_get_arr_ptr(mystack_t *mystack) {
 	return mystack->arr_ptr;
 }
 
+int thread_wrapper_fn(void *arg) {
 
-
-
-
-int mythread_wrapper_fn(void *arg) {
-	mythread_wrapper_t *mythread_wrapper = (mythread_wrapper_t *)arg;
-    DEBUG_PRINT("mythread_wrapper_fn have got mythread_wrapper\n");
+	thread_wrapper_t *tw = (thread_wrapper_t *)arg;
+    DEBUG_PRINT("thread_wrapper_fn have got thread_wrapper\n");
 
     INFO_PRINT("user_fn have started\n");
-	void *(*user_fn)(void *) = mythread_wrapper_get_user_fn(mythread_wrapper);
-	void *result = user_fn(mythread_wrapper_get_user_arg(mythread_wrapper));
+	void *result = tw->user_fn(tw->user_arg);
     DEBUG_PRINT("user_fn returned: %p\n", result);
 
-	void **fn_retv = mythread_wrapper_get_fn_retv(mythread_wrapper);
-    *(fn_retv) = result;
-    DEBUG_PRINT("stored result at address: %p, value: %p\n", fn_retv, *fn_retv);
+    *(tw->fn_retv) = result;
+    DEBUG_PRINT("stored result at address: %p, value: %p\n", tw->fn_retv, *(tw->fn_retv));
     INFO_PRINT("user_fn have finished\n");
 
-    delete_mythread_wrapper(mythread_wrapper);
-    DEBUG_PRINT("mythread_wrapper have been deleted\n");
+    delete_thread_wrapper(tw);
+    DEBUG_PRINT("thread_wrapper have been deleted\n");
 
 	return 0;
 }
 
-int mythread_create(mythread_t *mythread, void *(*start_routine)(void *), void *arg) {
-	mythread_set_stack(mythread, mystack_create(STACK_SIZE));
-	if (!mythread_get_stack(mythread)) {
+int mythread_create(mythread_t *thread, void *(*start_routine)(void *), void *arg) {
+
+	thread->stack = mystack_create(STACK_SIZE);
+	if (!thread->stack) {
 		perror("mystack_create failed");
 		return EXIT_FAILURE;
 	}
     DEBUG_PRINT("stack have been created\n");
 
-	mythread_wrapper_t *mythread_wrapper = create_mythread_wrapper(mythread, start_routine, arg);
-    if (!mythread_wrapper) {
-        perror("create_mythread_wrapper failed");
-        mystack_delete(mythread);
+	thread_wrapper_t *tw = create_thread_wrapper(thread, start_routine, arg);
+    if (!tw) {
+        perror("create_thread_wrapper failed");
+        mystack_delete(thread->stack);
         return EXIT_FAILURE;
     }
-    DEBUG_PRINT("mythread_wrapper have been created\n");
+    DEBUG_PRINT("thread_wrapper have been created\n");
 
-	mythread_set_pid(
-		mythread,
-		clone(
-			mythread_wrapper_fn,
-			mystack_get_arr_ptr(mythread_get_stack(mythread)) + mystack_get_size(mythread_get_stack(mythread)),
-			CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | SIGCHLD,
-			(void *)mythread_wrapper
-		)
+	thread->pid = clone(
+		thread_wrapper_fn,
+		thread->stack->arr_ptr + thread->stack->size,
+		CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | SIGCHLD,
+		(void *)tw
 	);
-	if (mythread_get_pid(mythread) == -1) {
+	if (thread->pid == -1) {
 		perror("clone failed");
 		return EXIT_FAILURE;
 	}
@@ -186,50 +152,23 @@ int mythread_create(mythread_t *mythread, void *(*start_routine)(void *), void *
 	return EXIT_SUCCESS;
 }
 
-int mythread_join(mythread_t *mythread, void **retv) {
-	if (waitpid(mythread_get_pid(mythread), NULL, 0) == -1) {
+int mythread_join(mythread_t *thread, void **retv) {
+	if (waitpid(thread->pid, NULL, 0) == -1) {
 		perror("waitpid failed");
 		return EXIT_FAILURE;
 	}
     INFO_PRINT("have waited for the mythread to finish\n");
 
-	*retv = mythread_get_retv(mythread);
-    DEBUG_PRINT("have stored value=%p\n", mythread_get_retv(mythread));
+	*retv = thread->retv;
+    DEBUG_PRINT("have stored value=%p\n", thread->retv);
 
-	if (mystack_delete(mythread_get_stack(mythread)) != EXIT_SUCCESS) {
+	if (mystack_delete(thread->stack) != EXIT_SUCCESS) {
 		perror("mystack_delete failed");
 	}
     INFO_PRINT("have got the message from the mythread\n");
 
 	return EXIT_SUCCESS;
 }
-
-int mythread_get_pid(mythread_t *mythread) {
-	return mythread->pid;
-}
-
-mystack_t *mythread_get_stack(mythread_t *mythread) {
-	return mythread->stack;
-}
-
-void *mythread_get_retv(mythread_t *mythread) {
-	return mythread->retv;
-}
-
-void mythread_set_pid(mythread_t *mythread, int pid) {
-	mythread->pid = pid;
-}
-
-void mythread_set_stack(mythread_t *mythread, mystack_t *mystack) {
-	mythread->stack = mystack;
-}
-
-void mythread_set_retv(mythread_t *mythread, void *retv) {
-	mythread->retv = retv;
-}
-
-
-
 
 void *mythread_fn(void *arg) {
 	printf("\t[MYTHREAD]: I've started!\n");
@@ -260,3 +199,4 @@ int main() {
     printf("\n\n\n");
 	return EXIT_SUCCESS;
 }
+
