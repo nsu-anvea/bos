@@ -59,7 +59,7 @@ int main() {
     printf("\nЗапуск планировщика...\n\n");
     uthread_yield();
     
-    printf("\n\n=== Все потоки завершились ===\n\n\n");
+    printf("\n=== Все потоки завершились ===\n\n\n");
     
     return 0;
 }
