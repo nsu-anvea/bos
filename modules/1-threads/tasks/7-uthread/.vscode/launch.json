@@ -6,14 +6,14 @@
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/modules/1-threads/tasks/7-uthread/test_uthread",
+            "program": "${workspaceFolder}/test_uthread",
             "args": [],
             "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/modules/1-threads/tasks/7-uthread",
+            "cwd": "${workspaceFolder}",
             "environment": [
                 {
                     "name": "LD_LIBRARY_PATH",
-                    "value": "${workspaceFolder}/modules/1-threads/tasks/7-uthread:${env:LD_LIBRARY_PATH}"
+                    "value": "${workspaceFolder}:${env:LD_LIBRARY_PATH}"
                 }
             ],
             "externalConsole": false,
