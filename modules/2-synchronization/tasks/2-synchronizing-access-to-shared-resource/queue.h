@@ -8,16 +8,22 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <pthread.h>
+
+
 
 typedef struct _QueueNode {
 	int val;
 	struct _QueueNode *next;
 } qnode_t;
 
+
+
 typedef struct _Queue {
 	qnode_t *first;
 	qnode_t *last;
 
+	pthread_spinlock_t lock;
 	pthread_t qmonitor_tid;
 
 	int count;
@@ -29,6 +35,8 @@ typedef struct _Queue {
 	long add_count;
 	long get_count;
 } queue_t;
+
+
 
 queue_t* queue_init(int max_count);
 void queue_destroy(queue_t *q);
