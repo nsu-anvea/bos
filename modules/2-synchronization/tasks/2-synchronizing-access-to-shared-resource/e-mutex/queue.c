@@ -34,10 +34,9 @@ queue_t* queue_init(int max_count) {
 	q->add_attempts = q->get_attempts = 0;
 	q->add_count = q->get_count = 0;
 
-	// PTHREAD_PROCESS_PRIVATE (0) - для потоков одного процесса
-	err = pthread_spin_init(&q->lock, PTHREAD_PROCESS_PRIVATE);
+	err = pthread_mutex_init(&q->mutex, NULL);
 	if (err) {
-		printf("queue_init: pthread_spin_init() failed: %s\n", strerror(err));
+		printf("queue_init: pthread_mutex_init() failed: %s\n", strerror(err));
 		free(q);
 		abort();
 	}
@@ -45,11 +44,10 @@ queue_t* queue_init(int max_count) {
 	err = pthread_create(&q->qmonitor_tid, NULL, qmonitor, q);
 	if (err) {
 		printf("queue_init: pthread_create() failed: %s\n", strerror(err));
-		pthread_spin_destroy(&q->lock);
+		pthread_mutex_destroy(&q->mutex);
 		free(q);
 		abort();
 	}
-
 	return q;
 }
 
@@ -63,7 +61,7 @@ void queue_destroy(queue_t *q) {
 		free(current);
 		current = next;
 	}
-	pthread_spin_destroy(&q->lock);
+	pthread_mutex_destroy(&q->mutex);
 	free(q);
 }
 
@@ -80,11 +78,12 @@ int queue_add(queue_t *q, int val) {
 	new->val = val;
 	new->next = NULL;
 
-	pthread_spin_lock(&q->lock);
+	pthread_mutex_lock(&q->mutex);
 
 	if (q->count == q->max_count) {
-		pthread_spin_unlock(&q->lock);
+		pthread_mutex_unlock(&q->mutex);
 		free(new);
+		usleep(1);
 		return 0;
 	}
 
@@ -96,7 +95,7 @@ int queue_add(queue_t *q, int val) {
 	}
 	q->count++;
 
-	pthread_spin_unlock(&q->lock);
+	pthread_mutex_unlock(&q->mutex);
 
 	q->add_count++;
 
@@ -108,10 +107,11 @@ int queue_get(queue_t *q, int *val) {
 
 	assert(q->count >= 0);
 
-	pthread_spin_lock(&q->lock);
+	pthread_mutex_lock(&q->mutex);
 
 	if (q->count == 0) {
-		pthread_spin_unlock(&q->lock);
+		pthread_mutex_unlock(&q->mutex);
+		usleep(1);
 		return 0;
 	}
 
@@ -120,7 +120,7 @@ int queue_get(queue_t *q, int *val) {
 	q->first = q->first->next;
 	q->count--;
 
-	pthread_spin_unlock(&q->lock);
+	pthread_mutex_unlock(&q->mutex);
 
 	q->get_count++;
 	free(tmp);
@@ -129,20 +129,18 @@ int queue_get(queue_t *q, int *val) {
 }
 
 void queue_print_stats(queue_t *q) {
+	pthread_mutex_lock(&q->mutex);
 	
-	pthread_spin_lock(&q->lock);
-
 	int count = q->count;
 	long add_attempts = q->add_attempts;
 	long get_attempts = q->get_attempts;
 	long add_count = q->add_count;
 	long get_count = q->get_count;
-
-	pthread_spin_unlock(&q->lock);
+	
+	pthread_mutex_unlock(&q->mutex);
 	
 	printf("queue stats: current size %d; attempts: (%ld %ld %ld); counts (%ld %ld %ld)\n",
 		count,
 		add_attempts, get_attempts, add_attempts - get_attempts,
-		add_count, get_count, add_count - get_count
-	);
+		add_count, get_count, add_count - get_count);
 }

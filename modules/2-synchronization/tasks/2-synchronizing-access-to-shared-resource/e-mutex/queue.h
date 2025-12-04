@@ -23,7 +23,7 @@ typedef struct _Queue {
 	qnode_t *first;
 	qnode_t *last;
 
-	pthread_spinlock_t lock;
+	pthread_mutex_t mutex;
 	pthread_t qmonitor_tid;
 
 	int count;
